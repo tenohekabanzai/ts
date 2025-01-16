@@ -1,5 +1,6 @@
 const Image = require('../models/Image');
 const uploadToCloudinary = require('../helpers/cloudinary');
+const cloudinary = require('cloudinary').v2;
 const uploadimage = async(req,res)=>{
     try {
 
@@ -33,4 +34,63 @@ const uploadimage = async(req,res)=>{
     }
 }
 
-module.exports = uploadimage;
+const fetchImages = async(req,res)=>{
+    try {
+        const resp = await Image.find();
+        return res.status(200).json({
+            status:true,
+            message:resp
+        })
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message:"Server Error!! while fetching images"
+        })
+    }
+}
+
+const deleteImage = async(req,res)=>{
+    try {
+        
+        cloudinary.config({ 
+            cloud_name: process.env.CLOUDINARY_NAME, 
+            api_key: process.env.CLOUDINARY_API_KEY, 
+            api_secret: process.env.CLOUDINARY_API_SECRET 
+        });
+
+        const getcurrImgID = req.params.id;
+        const userID = req.userInfo.userId;
+        const image = await Image.findById(getcurrImgID);
+        if(!image){
+            return res.status(404).json({
+                success:false,
+                message:"Image does not exist"
+            })
+        }
+        if(image.uploadedBy.toString() != userID){
+            return res.status(403).json({
+                success:false,
+                message:"Not permitted to delete image"
+            })
+        }
+        else{
+            
+            // delete from cloudinary
+            await cloudinary.uploader.destroy(image.publicId);
+            // delete from mongodb
+            const deletedImg = await Image.findByIdAndDelete(image._id);
+
+            return res.status(200).json({
+                success:true,
+                message:"deleted image successfully"
+            })
+        }
+    } catch (error) {
+        return res.status(500).json({
+            success:false,
+            message:"Server error while deleting image"
+        })
+    }
+}
+
+module.exports = {uploadimage,deleteImage,fetchImages};

@@ -2,7 +2,6 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 
-
 const registerUser = async(req,res)=>{
 
     try {
@@ -83,4 +82,46 @@ const loginUser = async(req,res)=>{
     }
 }
 
-module.exports = {registerUser,loginUser};
+const changePassword = async(req,res)=>{
+    try {
+        const userId = req.userInfo.userId;
+
+        const {oldPassword,newPassword} = req.body;
+        const user = await User.findById(userId);
+
+        if(!user){
+            return res.status(400).json({
+                success: false,
+                message: "User not found"
+            })
+        }
+
+        // check if old password is correct
+        const isMatch = await bcrypt.compare(oldPassword,user.password);
+        if(!isMatch){
+            return res.status(403).json({
+                success:false,
+                message:"Incorrect old password"
+            })
+        }
+
+        // hash new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        const updated = await User.findByIdAndUpdate(userId,{password:hashedPassword},{new:true})
+        console.log(updated);
+        return res.status(200).json({
+            success:true,
+            message: "Sucessfully changed password",
+        })
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            successs:false,
+            message: "Server Error occured while changing password"
+        })
+    }
+}
+
+module.exports = {registerUser,loginUser,changePassword};
