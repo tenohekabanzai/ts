@@ -1,6 +1,7 @@
 const Image = require('../models/Image');
 const uploadToCloudinary = require('../helpers/cloudinary');
 const cloudinary = require('cloudinary').v2;
+
 const uploadimage = async(req,res)=>{
     try {
 
@@ -36,10 +37,31 @@ const uploadimage = async(req,res)=>{
 
 const fetchImages = async(req,res)=>{
     try {
-        const resp = await Image.find();
+
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        let skip = (page-1)*limit;
+        
+        if(skip<0)
+        skip=0;
+
+        const sortBy = req.query.sortBy || ' createdAt';
+        const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
+        const totalImages = await Image.countDocuments();
+        const totalPages = Math.ceil(totalImages/limit);
+
+        const sortObj = {};
+        sortObj[sortBy] = sortOrder;
+        const resp = await Image.find().sort(sortObj).skip(skip).limit(limit);
+
+        // const resp = await Image.find();
+
         return res.status(200).json({
             status:true,
-            message:resp
+            currentPage: page,
+            totalPages: totalPages,
+            totalImages: totalImages,
+            data:resp
         })
     } catch (error) {
         return res.status(500).json({
@@ -61,12 +83,14 @@ const deleteImage = async(req,res)=>{
         const getcurrImgID = req.params.id;
         const userID = req.userInfo.userId;
         const image = await Image.findById(getcurrImgID);
+
         if(!image){
             return res.status(404).json({
                 success:false,
                 message:"Image does not exist"
             })
         }
+        
         if(image.uploadedBy.toString() != userID){
             return res.status(403).json({
                 success:false,
@@ -85,6 +109,7 @@ const deleteImage = async(req,res)=>{
                 message:"deleted image successfully"
             })
         }
+
     } catch (error) {
         return res.status(500).json({
             success:false,
